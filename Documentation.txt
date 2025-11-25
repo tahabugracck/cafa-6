@@ -1,44 +1,54 @@
-TEKNİK DOKÜMANTASYON - CAFA 6 PROJESİ
-=====================================
+PROJE TEKNİK DOKÜMANTASYONU (AÇIKLAMALI)
+========================================
 
-1. VERİ İŞLEME VE HAZIRLIK
---------------------------
+1. VERİ İŞLEME (GİRDİLERİ HAZIRLAMA)
+------------------------------------
 Dosya: notebooks/01_Data_Prep_and_EDA.py
-- FASTA İşleme: UniProt formatındaki başlıklar (örn: sp|Q9|ID) parse edilerek temiz Protein ID'leri çıkarıldı.
-- Veri Seti: 82.404 eğitim proteini ve 4.945 test proteini işlendi.
-- Etiketler: 'train_terms.tsv' dosyasındaki GO terimleri analiz edildi.
+*   Ne Yaptık?
+    Bize verilen protein dosyaları karışıktı (sp|Q9|ID gibi). Biz bunları ayıkladık ve temiz ID'ler elde ettik.
+*   Veri Büyüklüğü:
+    - Öğretilecek Protein Sayısı: 82.404 (Ders Kitabı)
+    - Tahmin Edilecek Protein Sayısı: 4.945 (Sınav Soruları)
+*   Hedef:
+    Modelin bu proteinlerin "Ne işe yaradığını" (GO Terimleri) öğrenmesini sağlamak.
 
-2. ÖZELLİK ÇIKARIMI (FEATURE EXTRACTION)
-----------------------------------------
+2. ÖZELLİK ÇIKARIMI (PROTEİNLERİ SAYIYA ÇEVİRME)
+------------------------------------------------
 Dosya: src/feature_extractor.py
-- Yöntem: Protein Language Model (PLM) kullanıldı.
-- Model: facebook/esm2_t6_8M_UR50D (HuggingFace Transformers).
-- İşlem: 
-  - Her protein dizisi tokenize edildi (max_length=1024).
-  - Modelin son gizli katmanının ortalaması (Mean Pooling) alındı.
-  - Çıktı: Her protein için 320 boyutlu bir vektör (embedding).
-- Dosyalar: .npy formatında input/ klasörüne kaydedildi.
+*   Sorun:
+    Bilgisayarlar harflerden (M, K, A...) anlamaz, sayılardan anlar.
+*   Çözüm (ESM-2 Modeli):
+    Facebook'un geliştirdiği devasa bir "Biyolojik Dil Modeli"ni kullandık. Bu model, protein harflerini okudu ve her protein için bize 320 tane sayı verdi (Embedding).
+*   Analoji:
+    Protein bir "Cümle" ise, Embedding o cümlenin "Özeti"dir. Biz modele cümleyi değil, sayısal özetini verdik.
 
-3. MODEL EĞİTİMİ (MODELING)
----------------------------
+3. MODEL EĞİTİMİ (ÖĞRENME SÜRECİ)
+---------------------------------
 Dosya: notebooks/02_Model_Training.ipynb
-- Mimari: Basit Sinir Ağı (Feed Forward Neural Network / MLP).
-  - Girdi: 320 (Embedding boyutu)
-  - Gizli Katman: 512 nöron + ReLU + Dropout (0.3)
-  - Çıktı: 300 (Her kategori için en sık geçen 300 etiket)
-- Loss Fonksiyonu: BCEWithLogitsLoss (Multi-label classification için).
-- Optimizasyon: Adam Optimizer (Learning Rate: 0.001).
-- Strateji: MF, BP ve CC ontolojileri için 3 ayrı model eğitildi.
+*   Mimari (Beyin Yapısı):
+    3 Katmanlı Basit Sinir Ağı (MLP) kurduk.
+    1. Katman: Girdileri alır (320 sayı).
+    2. Katman: Bilgiyi işler, yorumlar (512 nöron).
+    3. Katman: Tahmin yapar (Bu protein şu işi yapar mı?).
+*   Strateji:
+    Yarışma 3 farklı kategori istediği için (MF, BP, CC), biz de 3 ayrı uzman model eğittik. Her biri kendi alanına odaklandı.
+*   Optimizasyon:
+    "Adam" algoritması kullandık. Bu algoritma, model her hata yaptığında "Şunu şöyle düzelt" diyerek modelin ayarlarını güncelledi.
 
-4. EĞİTİM DETAYLARI
--------------------
-- Epoch: 15
-- Batch Size: 64
-- Platform: Google Colab (T4 GPU) / Local (CPU destekli)
-- Threshold: 0.01 (Submission dosya boyutunu yönetmek için düşük tutuldu, optimize edilecek).
+4. EĞİTİM DETAYLARI VE SONUÇLAR
+-------------------------------
+*   Süreç (Epoch):
+    Model tüm veriyi 15 kere baştan sona çalıştı. Her turda hatası (Loss) azaldı.
+*   Loss Değerleri:
+    Başlangıçta daha yüksekken, eğitimin sonunda 0.01 seviyelerine düştü. Bu, modelin öğrenme sürecini başarıyla tamamladığını gösterir.
+*   Platform:
+    İşlemlerin hızlı bitmesi için Google Colab üzerindeki Ekran Kartı (GPU) gücünü kullandık.
 
-5. SONUÇ VE SUBMISSION
-----------------------
-- Çıktı Yeri: output/submissions/submission_v1_baseline.tsv
-- Format: Tab-separated values (ProteinID, GO_Term, Score)
-- Notlar: Skorlar 0-1 aralığında olasılık değerleridir.
+5. ÇIKTI (SUBMISSION)
+---------------------
+*   Dosya: submission_v1_baseline.tsv
+*   İçerik:
+    Modelin test proteinleri için ürettiği "Olasılık Skorları".
+    Örn: "Bu protein %48 ihtimalle DNA onarımı yapar."
+*   Filtreleme:
+    Dosya boyutu aşırı büyümesin diye, modelin %1'den az ihtimal verdiği tahminleri eledik.
