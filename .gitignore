@@ -1,0 +1,21 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Veri Dosyaları (GitHub'a gitmesin!)
+input/*
+output/*
+*.npy
+*.tsv
+*.fasta
+*.obo
+
+# Colab/Jupyter Checkpoints
+.ipynb_checkpoints/
+
+# VS Code ayarları
+.vscode/
+
+# Environment
+.env
+venv/

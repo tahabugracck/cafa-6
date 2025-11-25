@@ -1,0 +1,44 @@
+TEKNİK DOKÜMANTASYON - CAFA 6 PROJESİ
+=====================================
+
+1. VERİ İŞLEME VE HAZIRLIK
+--------------------------
+Dosya: notebooks/01_Data_Prep_and_EDA.py
+- FASTA İşleme: UniProt formatındaki başlıklar (örn: sp|Q9|ID) parse edilerek temiz Protein ID'leri çıkarıldı.
+- Veri Seti: 82.404 eğitim proteini ve 4.945 test proteini işlendi.
+- Etiketler: 'train_terms.tsv' dosyasındaki GO terimleri analiz edildi.
+
+2. ÖZELLİK ÇIKARIMI (FEATURE EXTRACTION)
+----------------------------------------
+Dosya: src/feature_extractor.py
+- Yöntem: Protein Language Model (PLM) kullanıldı.
+- Model: facebook/esm2_t6_8M_UR50D (HuggingFace Transformers).
+- İşlem: 
+  - Her protein dizisi tokenize edildi (max_length=1024).
+  - Modelin son gizli katmanının ortalaması (Mean Pooling) alındı.
+  - Çıktı: Her protein için 320 boyutlu bir vektör (embedding).
+- Dosyalar: .npy formatında input/ klasörüne kaydedildi.
+
+3. MODEL EĞİTİMİ (MODELING)
+---------------------------
+Dosya: notebooks/02_Model_Training.ipynb
+- Mimari: Basit Sinir Ağı (Feed Forward Neural Network / MLP).
+  - Girdi: 320 (Embedding boyutu)
+  - Gizli Katman: 512 nöron + ReLU + Dropout (0.3)
+  - Çıktı: 300 (Her kategori için en sık geçen 300 etiket)
+- Loss Fonksiyonu: BCEWithLogitsLoss (Multi-label classification için).
+- Optimizasyon: Adam Optimizer (Learning Rate: 0.001).
+- Strateji: MF, BP ve CC ontolojileri için 3 ayrı model eğitildi.
+
+4. EĞİTİM DETAYLARI
+-------------------
+- Epoch: 15
+- Batch Size: 64
+- Platform: Google Colab (T4 GPU) / Local (CPU destekli)
+- Threshold: 0.01 (Submission dosya boyutunu yönetmek için düşük tutuldu, optimize edilecek).
+
+5. SONUÇ VE SUBMISSION
+----------------------
+- Çıktı Yeri: output/submissions/submission_v1_baseline.tsv
+- Format: Tab-separated values (ProteinID, GO_Term, Score)
+- Notlar: Skorlar 0-1 aralığında olasılık değerleridir.
