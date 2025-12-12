@@ -4,20 +4,23 @@ __pycache__/
 .venv/
 env/
 
-# Büyük Veri Dosyaları (Kritik!)
+# Büyük Veri ve Model Dosyaları
 data/Train/
 data/Test/
 input/
 models/*.pth
-output/
 *.npy
 *.npz
 
-# Submission Dosyaları
+# Submission Klasörleri (Burayı güncelledim)
+output/
+output_submission/
+models/output/
+
+# Büyük TSV/CSV dosyaları (Garanti olsun diye)
 *.tsv
 *.csv
 
-# IDE Ayarları
+# Editör Ayarları
 .vscode/
 .idea/
-.DS_Store
