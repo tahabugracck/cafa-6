@@ -32,7 +32,7 @@ def extract():
         ids.append(clean_id)
 
     embeddings = []
-    print(f"📊 Toplam {len(sequences)} protein işlenecek...")
+    print(f"Toplam {len(sequences)} protein işlenecek...")
 
     for i in tqdm(range(0, len(sequences), BATCH_SIZE)):
         batch_seqs = sequences[i:i + BATCH_SIZE]

@@ -6,7 +6,7 @@ from transformers import AutoTokenizer, AutoModel
 from tqdm import tqdm
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-INPUT_FASTA = os.path.join(BASE_DIR, "data", "Test", "testsuperset.fasta")
+INPUT_FASTA = os.path.join(BASE_DIR, "data", "Test", "testsuperset.fasta") # Fark burada
 OUTPUT_DIR = os.path.join(BASE_DIR, "input")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -17,7 +17,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def extract():
     print(f"Test Embedding Başlıyor... Cihaz: {DEVICE}")
     if not os.path.exists(INPUT_FASTA):
-        print("Test fasta dosyası bulunamadı.")
+        print("❌ Test fasta dosyası bulunamadı.")
         return
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
