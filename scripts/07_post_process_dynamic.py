@@ -3,49 +3,49 @@ import numpy as np
 import os
 import sys
 
-# Paths
+# Dosya Yolları
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INPUT_SUBMISSION = os.path.join(BASE_DIR, "output", "submission_specialist.tsv")
 IA_FILE = os.path.join(BASE_DIR, "data", "Train", "IA.tsv")
 OUTPUT_FILE = os.path.join(BASE_DIR, "output", "submission_final.tsv")
 
-# Configuration
-TOP_K = 70  # Keep top K predictions per protein
+# Yapılandırma
+TOP_K = 70  # Her protein için en iyi K tahmini sakla
 
 def apply_dynamic_threshold():
-    print("Starting Dynamic Thresholding (IA Weighted)...")
+    print("Dinamik Eşikleme Başlıyor (IA Ağırlıklı)...")
     
-    # 1. Validation
+    # 1. Doğrulama
     if not os.path.exists(INPUT_SUBMISSION):
-        print(f"Error: Input file {INPUT_SUBMISSION} not found.")
+        print(f"Hata: Girdi dosyası {INPUT_SUBMISSION} bulunamadı.")
         return
     if not os.path.exists(IA_FILE):
-        print(f"Error: IA file {IA_FILE} not found.")
+        print(f"Hata: IA dosyası {IA_FILE} bulunamadı.")
         return
 
-    # 2. Load IA (Information Accretion) Weights
-    print("Loading Information Accretion weights...")
+    # 2. IA (Bilgi Kazanımı) Ağırlıklarını Yükle
+    print("Bilgi Kazanımı ağırlıkları yükleniyor...")
     try:
         ia_df = pd.read_csv(IA_FILE, sep="\t", names=["Term", "IA"])
     except Exception as e:
-        print(f"Error reading IA file: {e}")
+        print(f"IA dosyası okuma hatası: {e}")
         return
     
-    # 3. Load Submission
-    print("Loading submission file...")
+    # 3. Gönderim Dosyasını Yükle
+    print("Submission dosyası yükleniyor...")
     df = pd.read_csv(INPUT_SUBMISSION, sep="\t", header=None, names=["ID", "Term", "Score"], dtype={"Score": float})
     
-    # 4. Merge Data
+    # 4. Verileri Birleştir
     merged = pd.merge(df, ia_df, on="Term", how="left")
-    # Fill missing IA values with default (1.0)
+    # Eksik IA değerlerini varsayılan (1.0) ile doldur
     merged["IA"] = merged["IA"].fillna(1.0)
     
-    print(f"Original rows: {len(merged):,}")
+    print(f"Orijinal satır sayısı: {len(merged):,}")
     
-    # 5. Apply Dynamic Logic
-    # Strategy:
-    # - High IA (Rare/Valuable): Keep even if confidence is low.
-    # - Low IA (Common): Keep only if confidence is high.
+    # 5. Dinamik Mantık Uygula
+    # Strateji:
+    # - Yüksek IA (Nadir/Değerli): Güven düşük olsa bile sakla.
+    # - Düşük IA (Yaygın): Sadece güven yüksekse sakla.
     
     mask_valuable = (merged["IA"] >= 2.0) & (merged["Score"] >= 0.005)
     mask_common   = (merged["IA"] < 0.5) & (merged["Score"] >= 0.15)
@@ -53,20 +53,20 @@ def apply_dynamic_threshold():
     
     final_df = merged[mask_valuable | mask_common | mask_normal]
     
-    print(f"Filtered rows: {len(final_df):,}")
+    print(f"Filtrelenmiş satır sayısı: {len(final_df):,}")
     
-    # 6. Top-K Filtering
-    # To reduce file size and remove noise, keep only top predictions per protein
-    print(f"Applying Top-{TOP_K} filter per protein...")
+    # 6. Top-K Filtreleme
+    # Dosya boyutunu küçültmek ve gürültüyü kaldırmak için protein başına en iyi tahminleri sakla
+    print(f"Protein başına Top-{TOP_K} filtresi uygulanıyor...")
     final_df = final_df[["ID", "Term", "Score"]]
     final_df = final_df.sort_values(["ID", "Score"], ascending=[True, False])
     final_df = final_df.groupby("ID").head(TOP_K)
     
-    # 7. Save Final Output
-    print(f"Saving final submission to: {OUTPUT_FILE}")
+    # 7. Final Dosyayı Kaydet
+    print(f"Final dosya şuraya kaydediliyor: {OUTPUT_FILE}")
     final_df.to_csv(OUTPUT_FILE, sep="\t", header=False, index=False)
     
-    print("Post-processing completed successfully.")
+    print("Son işleme başarıyla tamamlandı.")
 
 if __name__ == "__main__":
     apply_dynamic_threshold()

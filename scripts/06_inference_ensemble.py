@@ -7,17 +7,17 @@ import networkx
 import obonet
 from tqdm import tqdm
 
-# Add project root to sys.path to import src modules
+# Proje kök dizinini ekle
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 
 from src.model import CAFA6Model
 
-# Configuration
+# Yapılandırma
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 2048
 
-# Paths
+# Dosya Yolları
 INPUT_DIR = os.path.join(BASE_DIR, "input")
 DATA_DIR = os.path.join(BASE_DIR, "data")
 MODEL_DIR = os.path.join(BASE_DIR, "models")
@@ -30,7 +30,7 @@ TRAIN_TAXON_FILE = os.path.join(DATA_DIR, "Train", "train_taxonomy.tsv")
 OBO_FILE = os.path.join(DATA_DIR, "Train", "go-basic.obo")
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "submission_specialist.tsv")
 
-# Aspects and class counts used during training
+# Eğitim sırasında kullanılan aspect ve sınıf sayıları
 ASPECTS = {
     "F": 2000,
     "C": 1500,
@@ -38,48 +38,48 @@ ASPECTS = {
 }
 
 def generate_ensemble():
-    print("Starting Ensemble Inference...")
+    print("Topluluk (Ensemble) Çıkarımı Başlıyor...")
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # 1. Load Test Data
+    # 1. Test Verisini Yükle
     if not os.path.exists(TEST_EMB_FILE) or not os.path.exists(TEST_ID_FILE):
-        raise FileNotFoundError("Test embeddings not found. Please run embedding extraction script first.")
+        raise FileNotFoundError("Test yerleştirmeleri bulunamadı. Lütfen önce embedding çıkarma betiğini çalıştırın.")
 
     test_embs = np.load(TEST_EMB_FILE)
     test_ids = np.load(TEST_ID_FILE)
     
-    # 2. Prepare Taxonomy Maps
-    # Load Test Taxonomy
+    # 2. Taksonomi Haritalarını Hazırla
+    # Test Taksonomisini Yükle
     try:
         test_tax_df = pd.read_csv(TAXON_FILE, sep="\t", header=None, names=["ID", "TaxonID"])
         test_tax_df.set_index("ID", inplace=True)
     except Exception as e:
-        print(f"Warning: Could not load test taxonomy ({e}). Defaulting to 0.")
+        print(f"Uyarı: Test taksonomisi yüklenemedi ({e}). Varsayılan olarak 0 atanıyor.")
         test_tax_df = pd.DataFrame()
 
-    # Load Train Taxonomy to map IDs correctly
+    # Takson ID'lerini doğru şekilde eşlemek için Eğitim Taksonomisini Yükle
     if os.path.exists(TRAIN_TAXON_FILE):
         train_tax = pd.read_csv(TRAIN_TAXON_FILE, sep="\t", header=None, names=["ID", "TaxonID"])
         unique_taxons = train_tax['TaxonID'].unique()
         taxon_map = {tid: i+1 for i, tid in enumerate(unique_taxons)}
         num_taxons = len(unique_taxons) + 1
     else:
-        raise FileNotFoundError("Train taxonomy file missing. Cannot map taxon IDs.")
+        raise FileNotFoundError("Eğitim taksonomi dosyası eksik. Takson ID'leri eşlenemiyor.")
 
     all_predictions = []
 
-    # 3. Inference Loop for Each Specialist Model
+    # 3. Her Uzman Model İçin Çıkarım Döngüsü
     for aspect, num_classes in ASPECTS.items():
-        print(f"Processing aspect: {aspect}...")
+        print(f"Aspect işleniyor: {aspect}...")
         
         model_path = os.path.join(MODEL_DIR, f"best_model_{aspect}.pth")
         map_path = os.path.join(MODEL_DIR, f"label_map_{aspect}.npy")
         
         if not os.path.exists(model_path):
-            print(f"Skipping {aspect}: Model file not found.")
+            print(f"Atlanıyor {aspect}: Model dosyası bulunamadı.")
             continue
 
-        # Load Label Map and Model
+        # Etiket Haritasını ve Modeli Yükle
         label_map = np.load(map_path, allow_pickle=True).item()
         idx_to_term = {v: k for k, v in label_map.items()}
         
@@ -87,12 +87,12 @@ def generate_ensemble():
         model.load_state_dict(torch.load(model_path, map_location=DEVICE))
         model.eval()
         
-        # Batch Prediction
-        for i in tqdm(range(0, len(test_ids), BATCH_SIZE), desc=f"Inference {aspect}"):
+        # Toplu Tahmin (Batch Prediction)
+        for i in tqdm(range(0, len(test_ids), BATCH_SIZE), desc=f"Çıkarım {aspect}"):
             batch_embs = torch.tensor(test_embs[i:i+BATCH_SIZE], dtype=torch.float32).to(DEVICE)
             batch_ids = test_ids[i:i+BATCH_SIZE]
             
-            # Map Taxon IDs
+            # Takson ID'lerini eşle
             batch_taxons = []
             for pid in batch_ids:
                 if pid in test_tax_df.index:
@@ -108,25 +108,25 @@ def generate_ensemble():
                 logits = model(batch_embs, batch_taxons)
                 probs = torch.sigmoid(logits).cpu().numpy()
             
-            # Filter and Store
+            # Filtrele ve Sakla
             for j, pid in enumerate(batch_ids):
                 p_probs = probs[j]
-                # Lower threshold for 'P' due to higher complexity
+                # 'P' için daha düşük eşik değeri (daha yüksek karmaşıklık nedeniyle)
                 threshold = 0.005 if aspect == 'P' else 0.01
                 
                 indices = np.where(p_probs > threshold)[0]
                 for idx in indices:
                     all_predictions.append(f"{pid}\t{idx_to_term[idx]}\t{p_probs[idx]:.3f}")
 
-    # Write Temporary Raw Predictions
+    # Geçici Ham Tahminleri Yaz
     temp_file = os.path.join(OUTPUT_DIR, "temp_submission.tsv")
     with open(temp_file, "w") as f:
         f.write("\n".join(all_predictions))
         
-    # 4. Post-Processing: Ontology Propagation
-    print("Applying Ontology Propagation (Hierarchy Rules)...")
+    # 4. Son İşleme: Ontoloji Yayılımı
+    print("Ontoloji Yayılımı Uygulanıyor (Hiyerarşi Kuralları)...")
     if not os.path.exists(OBO_FILE):
-         print("Error: OBO file not found. Skipping propagation.")
+         print("Hata: OBO dosyası bulunamadı. Yayılım atlanıyor.")
          return
 
     graph = obonet.read_obo(OBO_FILE)
@@ -134,8 +134,8 @@ def generate_ensemble():
     
     final_rows = []
     
-    # Propagate scores from children to parents
-    for protein_id, group in tqdm(df.groupby("ProteinID"), desc="Propagating"):
+    # Puanları alt sınıflardan üst sınıflara yay
+    for protein_id, group in tqdm(df.groupby("ProteinID"), desc="Yayılıyor"):
         scores = dict(zip(group["Term"], group["Score"]))
         terms = list(scores.keys())
         
@@ -144,7 +144,7 @@ def generate_ensemble():
             current = scores[term]
             
             try:
-                # Get ancestors (parents)
+                # Ataları (ebeveynleri) al
                 ancestors = networkx.descendants(graph, term)
             except: 
                 continue
@@ -155,18 +155,18 @@ def generate_ensemble():
                 else:
                     scores[anc] = current
         
-        # Final filter to keep file size manageable
+        # Dosya boyutunu yönetilebilir tutmak için son filtreleme
         for term, score in scores.items():
             if score >= 0.01:
                 final_rows.append(f"{protein_id}\t{term}\t{score:.3f}")
                 
-    # Save Final File
+    # Son Dosyayı Kaydet
     with open(OUTPUT_FILE, "w") as f:
         f.write("\n".join(final_rows))
         
-    print(f"Inference Completed. Output saved to: {OUTPUT_FILE}")
+    print(f"Çıkarım Tamamlandı. Çıktı şuraya kaydedildi: {OUTPUT_FILE}")
     
-    # Cleanup
+    # Temizlik
     if os.path.exists(temp_file):
         os.remove(temp_file)
 
