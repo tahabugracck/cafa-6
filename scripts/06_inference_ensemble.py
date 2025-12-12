@@ -7,7 +7,7 @@ import networkx
 import obonet
 from tqdm import tqdm
 
-# Proje kök dizinini ekle
+# Proje Kök Dizini Ayarı
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 

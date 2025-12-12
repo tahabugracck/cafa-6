@@ -9,26 +9,26 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import f1_score
 
-# Proje Kök Dizini Ayarı
-# Proje kök dizinini belirle
+# --- PROJE YAPILANDIRMASI ---
+# Scriptin çalıştığı klasörden (scripts/) iki üst dizine (proje köküne) çık
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 
 from src.model import CAFA6Model
 from src.data_loader import load_data, CAFA6Dataset
 
-# Ayarlar
-BATCH_SIZE = 256        
-LEARNING_RATE = 8e-4    
+# --- AYARLAR ---
+BATCH_SIZE = 256        # GPU VRAM'ine göre düşürebilirsin (Localde 32-64 önerilir)
+LEARNING_RATE = 8e-4    # 5000 sınıf için optimize edilmiş LR
 EPOCHS = 20
-TOP_N_LABELS = 5000     
+TOP_N_LABELS = 5000     # Hedef sınıf sayısı
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def train():
     print(f"Genel Model Eğitimi Başlıyor (Cihaz: {DEVICE})...")
     print(f"Çalışma Dizini: {BASE_DIR}")
 
-    # Dosya yollarını tanımla
+    # 1. Dosya Yollarını Ayarla
     DATA_DIR = os.path.join(BASE_DIR, "data", "Train")
     INPUT_DIR = os.path.join(BASE_DIR, "input")
     MODEL_DIR = os.path.join(BASE_DIR, "models")
@@ -37,24 +37,24 @@ def train():
     EMB_FILE = os.path.join(INPUT_DIR, "train_embeddings_650M.npy")
     ID_FILE = os.path.join(INPUT_DIR, "train_ids_650M.npy")
 
-    # Dosya kontrolü
+    # Dosya Kontrolü
     if not os.path.exists(EMB_FILE):
         print(f"HATA: Embedding dosyası bulunamadı: {EMB_FILE}")
         print("Lütfen önce 'scripts/02_extract_train_embeddings.py' dosyasını çalıştırın.")
         return
 
-    # Veriyi yükle
+    # 2. Veriyi Yükle
     print("Veriler yükleniyor ve işleniyor...")
     terms_df, tax_df, label_map = load_data(DATA_DIR, top_n_labels=TOP_N_LABELS)
     
-    # Taksonomi ID haritalama (0-N indekslemesi)
+    # Taksonomi ID haritalama (Modelin 0'dan N'e kadar index istemesi sebebiyle)
     unique_taxons = tax_df['TaxonID'].unique()
-    taxon_map = {tid: i+1 for i, tid in enumerate(unique_taxons)} # 0: Bilinmeyen
+    taxon_map = {tid: i+1 for i, tid in enumerate(unique_taxons)} # 0: Unknown
     
     print(f"Hedef Sınıf Sayısı: {len(label_map)}")
     print(f"Benzersiz Tür Sayısı: {len(unique_taxons)}")
 
-    # Veri seti ve DataLoader oluşturma
+    # 3. Dataset ve DataLoader
     full_dataset = CAFA6Dataset(
         embeddings_path=EMB_FILE,
         ids_path=ID_FILE,
@@ -64,7 +64,7 @@ def train():
         label_map=label_map
     )
 
-    # Eğitim / Doğrulama Ayırma (%90 - %10)
+    # Train / Val Split (%90 - %10)
     train_size = int(0.9 * len(full_dataset))
     val_size = len(full_dataset) - train_size
     train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
@@ -72,7 +72,7 @@ def train():
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    # Model Kurulumu
+    # 4. Model Kurulumu
     model = CAFA6Model(
         num_classes=len(label_map),
         num_taxons=len(unique_taxons) + 1
@@ -82,7 +82,7 @@ def train():
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=2, factor=0.5)
 
-    # Eğitim Döngüsü
+    # 5. Eğitim Döngüsü
     best_f1 = 0.0
     
     for epoch in range(EPOCHS):
@@ -93,7 +93,7 @@ def train():
         for batch in loop:
             embs = batch['embedding'].to(DEVICE)
             
-            # Taksonomi ID Eşleme
+            # Taxonomy ID Mapping (Dataset raw ID döndürür, model index ister)
             raw_taxons = batch['taxon_id'].tolist()
             mapped_taxons = torch.tensor([taxon_map.get(t, 0) for t in raw_taxons], device=DEVICE)
             
@@ -109,7 +109,7 @@ def train():
             total_loss += loss.item()
             loop.set_postfix(loss=loss.item())
 
-        # Doğrulama (Validation)
+        # 6. Validation (Doğrulama)
         model.eval()
         val_preds = []
         val_targets = []
@@ -130,7 +130,7 @@ def train():
         val_preds = np.vstack(val_preds)
         val_targets = np.vstack(val_targets)
         
-        # F1 Skoru Hesaplama (Eşik değeri 0.25)
+        # Basit F1 Hesaplama (Threshold 0.25 - Genel model için ideal)
         y_pred_bin = (val_preds > 0.25).astype(int)
         f1 = f1_score(val_targets, y_pred_bin, average='micro')
         
@@ -140,13 +140,13 @@ def train():
         # Scheduler Adımı
         scheduler.step(f1)
         
-        # Model Kaydetme
+        # En iyi modeli kaydet
         if f1 > best_f1:
             best_f1 = f1
             save_path = os.path.join(MODEL_DIR, "best_model_general.pth")
             torch.save(model.state_dict(), save_path)
             
-            # Etiket Haritasını Kaydet
+            # Label Map'i de kaydet (Inference için şart)
             np.save(os.path.join(MODEL_DIR, "label_map_general.npy"), label_map)
             print(f"Yeni Rekor! Model Kaydedildi: {save_path}")
 

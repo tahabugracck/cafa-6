@@ -7,7 +7,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data", "Train")
 
 def analyze_data():
-    print("Veri Analizi Başlıyor...")
+    print("📊 Veri Analizi Başlıyor...")
     terms_path = os.path.join(DATA_DIR, "train_terms.tsv")
     tax_path = os.path.join(DATA_DIR, "train_taxonomy.tsv")
 
@@ -18,7 +18,7 @@ def analyze_data():
         print("-> Kategori Dağılımı:")
         print(df['aspect'].value_counts())
     else:
-        print("train_terms.tsv bulunamadı.")
+        print("❌ train_terms.tsv bulunamadı.")
 
     if os.path.exists(tax_path):
         # Header yoksa

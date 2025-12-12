@@ -9,14 +9,14 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import f1_score
 
-# İçe aktarma ayarı
+# Import ayarı
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 from src.model import CAFA6Model
 from src.data_loader import load_data, CAFA6Dataset
 
 # Ayarlar
-BATCH_SIZE = 256 # VRAM durumuna göre azaltılabilir
+BATCH_SIZE = 256 # VRAM'e göre düşürebilirsin
 LEARNING_RATE = 8e-4
 EPOCHS = 15
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -24,7 +24,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ASPECTS = {"F": 2000, "C": 1500, "P": 3000}
 
 def train_specialist(target_aspect, top_n):
-    print(f"\nUZMAN EĞİTİMİ: {target_aspect} (Sınıf: {top_n})")
+    print(f"\n🧬 UZMAN EĞİTİMİ: {target_aspect} (Sınıf: {top_n})")
     
     DATA_DIR = os.path.join(BASE_DIR, "data", "Train")
     INPUT_DIR = os.path.join(BASE_DIR, "input")
@@ -60,10 +60,10 @@ def train_specialist(target_aspect, top_n):
     for epoch in range(EPOCHS):
         model.train()
         for batch in tqdm(train_loader, desc=f"Ep {epoch+1}"):
-            # Not: Yerelde çalışırken Taksonomi Haritalama işlemi veri seti içinde veya burada yapılmalı
-            # Basitlik için burada haritalama yapmıyoruz, veri setine güveniyoruz
+            # Not: Localde çalışırken Taxonomy Map işlemi dataset içinde veya burada yapılmalı
+            # Basitlik için burada map'leme yapmıyoruz, dataset'e güveniyoruz
             embs, labels = batch['embedding'].to(DEVICE), batch['labels'].to(DEVICE)
-            # Takson ID basitleştirme (Demo)
+            # Taxon ID basitleştirme (Demo)
             taxons = torch.zeros(len(embs), dtype=torch.long).to(DEVICE) 
             
             optimizer.zero_grad()
@@ -72,7 +72,7 @@ def train_specialist(target_aspect, top_n):
             loss.backward()
             optimizer.step()
         
-        # Basit doğrulama
+        # Basit validation (Detayları kıstım)
         print(f"Epoch {epoch+1} Bitti.")
         
     torch.save(model.state_dict(), os.path.join(MODEL_DIR, f"best_model_{target_aspect}.pth"))
