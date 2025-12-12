@@ -1,0 +1,9 @@
+torch>=2.0.0
+pandas
+numpy
+biopython
+transformers
+obonet
+networkx
+tqdm
+scikit-learn

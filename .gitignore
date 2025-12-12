@@ -1,28 +1,23 @@
-# Python cache dosyaları
+# Python
 __pycache__/
 *.py[cod]
-
-# Sanal ortam (Varsa)
 .venv/
 env/
-venv/
 
-# Büyük Veri Dosyaları (GitHub'a atma!)
-data/
+# Büyük Veri Dosyaları (Kritik!)
+data/Train/
+data/Test/
 input/
+models/*.pth
 output/
-
-# Embedding çıktıları (Çok büyük boyutlu npy dosyaları)
 *.npy
 *.npz
 
-# Kaggle Submission dosyaları
-*.csv
+# Submission Dosyaları
 *.tsv
+*.csv
 
-# VS Code ayarları (Opsiyonel, ekip arkadaşlarınla çakışmasın diye)
+# IDE Ayarları
 .vscode/
-
-# İşletim sistemi dosyaları
+.idea/
 .DS_Store
-Thumbs.db
