@@ -15,7 +15,7 @@ BATCH_SIZE = 8
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def extract():
-    print(f"Test Embedding İşlemi Başlıyor... Cihaz: {DEVICE}")
+    print(f"Test Embedding Başlıyor... Cihaz: {DEVICE}")
     if not os.path.exists(INPUT_FASTA):
         print("Test fasta dosyası bulunamadı.")
         return
@@ -41,7 +41,7 @@ def extract():
 
     np.save(os.path.join(OUTPUT_DIR, "test_embeddings_650M.npy"), np.vstack(embeddings))
     np.save(os.path.join(OUTPUT_DIR, "test_ids_650M.npy"), np.array(ids))
-    print("Test Embedding İşlemi Tamamlandı.")
+    print("✅ Test Embedding Tamamlandı.")
 
 if __name__ == "__main__":
     extract()
